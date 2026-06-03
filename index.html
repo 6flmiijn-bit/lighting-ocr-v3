@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>OCR照会 V3.4.7.7.6.4.2</title>
+<title>OCR照会 V3.4.8.8.4.2</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 *{box-sizing:border-box}
@@ -358,67 +358,29 @@ input[type=file]{display:none}
 }
 
 
-/* V3.4.5 OCR text always visible */
-.v345-ocr-always{
-  position:static;
-  border:2px solid #8a5a3f!important;
-  background:#fff!important;
-  color:#111!important;
-  max-height:90px!important;
-  overflow:auto!important;
-}
-
-
-/* V3.4.7 FA40356C LE1 tuning */
+/* V3.4.8 stable: result card always visible */
 .result{
-  min-height:80px!important;
-  max-height:80px!important;
-  overflow:hidden!important;
-  align-items:center!important;
+  min-height:80px;
+  margin-bottom:8px;
 }
-.result .readModel,
-.result .read-model,
-.result .v341-result-model,
-.result .v342-model,
-.result .v34ResultModel{
-  font-size:20px!important;
-  line-height:1.05!important;
+.resultAlways{
+  position:sticky;
+  top:48px;
+  z-index:4;
 }
-.result .meta,
-.result .v341-sub,
-.result .v342-sub,
-.result .v34Sub{
-  font-size:11px!important;
-  line-height:1.15!important;
-}
-.result .symbol,
-.result .v341-result-symbol,
-.result .v342-symbol,
-.result .v34ResultSymbol{
-  font-size:22px!important;
-}
-.ocrGuideBox{
-  position:absolute!important;
-  left:3%!important;
-  right:3%!important;
-  top:44%!important;
-  height:12%!important;
-  border:3px solid rgba(255,255,255,.95)!important;
-  border-radius:10px!important;
-  pointer-events:none!important;
-  box-shadow:0 0 8px rgba(255,255,255,.7)!important;
+.controlBlock.collapsed{
+  display:none!important;
 }
 
 canvas{display:none}
 </style>
 </head>
 <body>
-<header>OCR照会 V3.4.7.7.6.4.2<button id="btnHelp" class="helpBtn">ヘルプ</button></header>
+<header>OCR照会 V3.4.8.8.4.2<button id="btnHelp" class="helpBtn">ヘルプ</button></header>
 <div class="wrap">
 <section class="camera"><video id="video" playsinline muted></video><div class="crossH"></div><div class="crossV"></div><div class="guide">型番・照会記号を十字の中心に合わせてください</div></section>
-<div class="raw" id="rawBox" style="display:none">読取文字：未読取</div>
-<section class="result" id="result"><div><div class="state">待機中</div><div class="readModel">---</div><div class="meta">読取結果を表示します</div></div><div class="ruleBox" style="color:white"><div class="ruleKey">白</div><div class="ruleName">その他</div></div></section>
-<button id="btnFold" class="foldBtn">▲ 読取画面を隠す</button>
+<section class="result resultAlways" id="result"><div><div class="state">待機中</div><div class="readModel">---</div><div class="meta">読取結果を表示します</div></div><div class="ruleBox" style="color:white"><div class="ruleKey">白</div><div class="ruleName">その他</div></div></section>
+<button id="btnFold" class="foldBtn">▲ 操作部を隠す</button>
 <div id="controlBlock" class="controlBlock">
 <div class="readmode"><button id="btnModelRead" class="modeBtn active">型番読取</button><button id="btnSymbolRead" class="modeBtn">照会記号読取</button></div>
 
@@ -432,7 +394,7 @@ canvas{display:none}
 <button id="btnNewDelivery" class="v342-new-folder">＋ 新しい搬入フォルダ</button><div id="checkList"></div>
 <div class="small">チェックリストが0件の場合は保存しません。保存後に削除/残すを選べます。</div>
 <div class="foot"><label for="csvInput" class="fileLabel black">📁 CSV読込</label><button id="btnExport" class="blue">⬇ CSV書き出し</button><input id="csvInput" type="file" accept=".csv,text/csv"></div>
-<div class="small" id="csvInfo">初期データ：33件</div>
+<div class="small" id="csvInfo">初期データ：33件</div><div class="raw" id="rawBox">読取文字：未読取</div>
 <section class="panel"><h3>全型番を再確認</h3><span id="dataCount">33件</span></section>
 <div class="reviewHelp">基本3列＋あとで 開口サイズ / W数 / 電流値 を追加できます。</div><div id="reviewList" class="reviewBox"></div>
 </div>
@@ -447,30 +409,6 @@ const esc=s=>String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&
 window.addEventListener("DOMContentLoaded",()=>{loadRules();btnFold.onclick=toggleControls;btnModelRead.onclick=()=>setReadTarget("model");btnSymbolRead.onclick=()=>setReadTarget("symbol");btnManualMode.onclick=()=>setRegisterMode("manual");btnAutoMode.onclick=()=>setRegisterMode("auto");if(typeof btnNewDelivery!=='undefined')btnNewDelivery.onclick=createNewDelivery;
 btnStart.onclick=startAuto;btnAdd.onclick=addCurrent;btnLight.onclick=toggleLight;btnRead.onclick=readOnce;btnStop.onclick=stopAll;btnExport.onclick=exportCsv;csvInput.onchange=loadCsv;btnHelp.onclick=()=>{drawer.style.display="block";renderHelp();showTab("list")};btnClose.onclick=()=>drawer.style.display="none";document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));renderChecklist();renderReviewList();});
 function setStatus(s){status.textContent=s}
-function fixFaModel(s){
-  let x=String(s||"").toUpperCase();
-
-  x=x.replace(/[ＯO]/g,"0");
-  x=x.replace(/[ＳS]/g,"5");
-  x=x.replace(/[ＩI]/g,"1");
-  x=x.replace(/LEI/g,"LE1");
-  x=x.replace(/1E1/g,"LE1");
-  x=x.replace(/L E 1/g,"LE1");
-  x=x.replace(/L E1/g,"LE1");
-  x=x.replace(/LE 1/g,"LE1");
-  x=x.replace(/[　\s_.,:;|/\\()[\]{}]+/g,"");
-
-  // FA40356C1E1 / FA40356CLEI / FA40356CLE1 を補正
-  x=x.replace(/(FA[0-9]{5,6}C)(1E1|LEI|LE1)/g,"$1 LE1");
-
-  // 念のためFA40356CLE1形式もスペースを戻す
-  x=x.replace(/(FA[0-9]{5,6}C)LE1/g,"$1 LE1");
-
-  return x.trim();
-}
-function normalizeModelKey(s){
-  return fixFaModel(s).replace(/[　\s_.,:;|/\\()[\]{}]+/g,"").toUpperCase();
-}
 function ensureDelivery(){
   if(!activeDeliveryId){
     createNewDelivery();
@@ -511,7 +449,7 @@ function v341DeleteItem(i){
 function toggleControls(){
   controlsCollapsed=!controlsCollapsed;
   controlBlock.classList.toggle("collapsed",controlsCollapsed);
-  btnFold.textContent=controlsCollapsed?"▼ 読取画面を表示":"▲ 読取画面を隠す";
+  btnFold.textContent=controlsCollapsed?"▼ 操作部を表示":"▲ 操作部を隠す";
 }
 function deleteChecklistItem(i){
   if(!confirm("この行を削除しますか？"))return;
@@ -527,114 +465,24 @@ function renderHelp(){ruleList.innerHTML=rules.map((r,i)=>`<div class="ruleMini"
 function openPalette(i){editIdx=i;palettePanel.style.display="block";paletteGrid.innerHTML=palette.map(c=>`<button class="swatch" style="background:${c}" data-p="${c}"></button>`).join("");paletteGrid.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{rules[editIdx].color=b.dataset.p;palettePanel.style.display="none";saveRules()})}
 function catByName(n){return rules.find(r=>r.name===n)||rules[rules.length-1]}
 function categoryFor(sym,type){sym=String(sym||"").toUpperCase();type=String(type||"");if(sym.startsWith("LS")||type.includes("誘導標識"))return catByName("誘導標識");if(sym.startsWith("E")||type.includes("非常照明"))return catByName("非常照明");if(sym.startsWith("Y")||type.includes("通路誘導"))return catByName("通路誘導灯");if(sym.startsWith("X")||type.includes("避難口"))return catByName("避難口誘導灯");if(sym.startsWith("Z")||type.includes("階段通路"))return catByName("階段通路誘導灯");if(sym.includes("U")||type.includes("防湿")||type.includes("防雨")||type.includes("防水"))return catByName("防湿・防雨");if(type.includes("中継")||type.includes("信号"))return catByName("信号装置・中継器");if(type.includes("埋込"))return catByName("埋込");if(type.includes("直付"))return catByName("直付");return catByName("その他")}
-function normalize(s){
-  let x=String(s||"").toUpperCase();
-  x=fixFaModel(x);
-  return x
-    .replace(/[ＯO]/g,"0")
-    .replace(/[ＩIＬ]/g,"1")
-    .replace(/[Ｓ]/g,"5")
-    .replace(/[Ｂ]/g,"8")
-    .replace(/[　\s_.,:;|/\\()[\]{}]+/g,"")
-    .replace(/[^A-Z0-9\-]/g,"")
-    .trim()
-}]+/g,"").replace(/[^A-Z0-9\\-]/g,"").trim()}
+function normalize(s){return(s||"").toUpperCase().replace(/[ＯO]/g,"0").replace(/[ＩIＬ]/g,"1").replace(/[Ｓ]/g,"5").replace(/[Ｂ]/g,"8").replace(/[　\\s_.,:;|/\\\\()[\\]{}]+/g,"").replace(/[^A-Z0-9\\-]/g,"").trim()}
 function normSymbol(s){return String(s||"").toUpperCase().replace(/[　\\s_.,:;|/\\\\()[\\]{}]+/g,"").replace(/[^A-Z0-9一-龥ぁ-んァ-ン\\-]/g,"")}
 function looksLikeModel(s){let x=normalize(s);return x.length>=5&&x.length<=24&&/^(NNF|NNFB|NNLG|FA|FW|FSK|FK|LGB|XL|XND|NW|NDN)[A-Z0-9\\-]{3,}/.test(x)}
-function extractCandidates(text){
-  let raw=String(text||"");
-  let fixed=fixFaModel(raw);
-  let j=normalize(fixed);
-  let a=[];
-
-  // FA40356C LE1 専用
-  let fa1=fixed.match(/FA[0-9]{5,6}C\s?LE1/g);
-  if(fa1)a.push(...fa1.map(fixFaModel));
-
-  let fa2=j.match(/FA[0-9]{5,6}CLE1/g);
-  if(fa2)a.push(...fa2.map(x=>x.replace(/(FA[0-9]{5,6}C)LE1/,"$1 LE1")));
-
-  [
-    /NNFB[A-Z0-9\-]{4,18}/g,
-    /NNF[A-Z0-9\-]{4,18}/g,
-    /NNLG[A-Z0-9\-]{4,18}/g,
-    /FSK[A-Z0-9\-]{4,18}/g,
-    /FA[A-Z0-9\-]{4,18}/g,
-    /FW[A-Z0-9\-]{4,18}/g,
-    /FK[A-Z0-9\-]{4,18}/g,
-    /LGB[A-Z0-9\-]{4,18}/g,
-    /XL[A-Z0-9\-]{4,18}/g,
-    /XND[A-Z0-9\-]{4,18}/g,
-    /NW[A-Z0-9\-]{4,18}/g,
-    /NDN[A-Z0-9\-]{4,18}/g
-  ].forEach(p=>{
-    let m=j.match(p);
-    if(m)a.push(...m)
-  });
-
-  a.push(...(j.match(/[A-Z]{2,}[A-Z0-9\-]{3,20}/g)||[]).filter(looksLikeModel));
-
-  return[...new Set(a.map(fixFaModel))]
-}
+function extractCandidates(text){let j=normalize(text),a=[];[/NNFB\\d{5}[A-Z]*/g,/NNF\\d{5}[A-Z]*/g,/NNLG\\d{5}[A-Z]*/g,/FSK\\d{5}[A-Z]*/g,/FA\\d{5}[A-Z]*/g,/FW\\d{5}[A-Z]*/g].forEach(p=>{let m=j.match(p);if(m)a.push(...m)});a.push(...(j.match(/[A-Z]{2,}[A-Z0-9\\-]{3,}/g)||[]).filter(looksLikeModel));return[...new Set(a)]}
 function extractSymbolCandidates(text){let j=normSymbol(text),a=[];[/LS\\d{0,3}[A-Z]*/g,/[EYXZU]\\d{0,3}[A-Z]*/g,/[A-Z]\\d+[A-Z]*/g].forEach(p=>{let m=j.match(p);if(m)a.push(...m)});a.push(...(j.match(/[A-Z]{1,3}\\d{0,3}[A-Z]*/g)||[]).filter(x=>x.length>=1&&x.length<=8));return[...new Set(a)]}
 function safeOcrText(raw){let c=readTarget==="symbol"?extractSymbolCandidates(raw):extractCandidates(raw);if(c.length)return c[0];return String(raw||"").split(/\\n/).map(x=>x.trim()).filter(Boolean).sort((a,b)=>b.length-a.length)[0]?.slice(0,32)||"読取文字なし"}
 function sim(a,b){a=normalize(a);b=normalize(b);let m=a.length,l=b.length;if(!m||!l)return 0;let d=Array.from({length:m+1},()=>Array(l+1).fill(0));for(let i=0;i<=m;i++)d[i][0]=i;for(let j=0;j<=l;j++)d[0][j]=j;for(let i=1;i<=m;i++)for(let j=1;j<=l;j++){let c=a[i-1]===b[j-1]?0:1;d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+c)}return 1-d[m][l]/Math.max(m,l)}
-function matchModel(text){
-  let c=extractCandidates(text);
-  let j=normalizeModelKey(text);
-
-  for(const r of data){
-    let m=normalizeModelKey(r.model);
-    if(j.includes(m)||m.includes(j))return{hit:r,cand:r.model,score:1}
-  }
-
-  let best={hit:null,cand:c[0]||"",score:0};
-
-  for(const r of data){
-    let m=normalizeModelKey(r.model);
-    for(const x of c){
-      let s=sim(normalizeModelKey(x),m);
-      if(s>best.score)best={hit:r,cand:fixFaModel(x),score:s}
-    }
-  }
-
-  if(best.score>=0.66)return best;
-  if(c.length)return{hit:null,cand:fixFaModel(c[0]),score:best.score};
-  return{hit:null,cand:"未読取",score:0}
-}
+function matchModel(text){let c=extractCandidates(text),j=normalize(text);for(const r of data){let m=normalize(r.model);if(j.includes(m))return{hit:r,cand:r.model,score:1}}let best={hit:null,cand:c[0]||"",score:0};for(const r of data){let m=normalize(r.model);for(const x of c){let s=sim(x,m);if(s>best.score)best={hit:r,cand:x,score:s}}}if(best.score>=0.72)return best;if(c.length)return{hit:null,cand:c[0],score:best.score};return{hit:null,cand:"未読取",score:0}}
 function matchSymbol(text){let cs=extractSymbolCandidates(text);for(const c of cs){let nc=normSymbol(c);let hit=data.find(r=>normSymbol(r.symbol)===nc);if(hit)return{hit,cand:c,score:1}}for(const c of cs){let nc=normSymbol(c);let hit=data.find(r=>normSymbol(r.symbol).startsWith(nc)||nc.startsWith(normSymbol(r.symbol)));if(hit)return{hit,cand:c,score:.86}}return{hit:null,cand:cs[0]||safeOcrText(text),score:0}}
 function isDuplicateModel(model){let k=normalize(model);return data.filter(r=>normalize(r.model)===k).length>1}
 function addCurrentCore(silent=false){if(!current){if(!silent)alert("先に読取してください");return false}ensureDelivery();let d=new Date(),date=d.toISOString().slice(0,10).replaceAll("-","/"),time=d.toTimeString().slice(0,5),key=current.missing?current.model:current.symbol;let f=checklist.find(x=>x.deliveryId===activeDeliveryId&&x.symbol===key&&x.model===current.model);if(f&&!f.locked)f.qty+=1;else checklist.unshift({deliveryId:activeDeliveryId,date,time,symbol:key,model:current.model,type:current.type,qty:1,locked:false,missing:current.missing});renderChecklist();return true}
 function tryAutoRegister(hit,score){if(registerMode!=="auto"||readTarget!=="model")return;if(!hit||score<.86){setStatus("自動停止：一致率不足");return}if(isDuplicateModel(hit.model)){setStatus("自動停止：重複型番のため手動確認");return}let key=hit.model+"|"+hit.symbol,now=Date.now();if(lastAutoKey===key&&now-lastAutoTime<2000)return;lastAutoKey=key;lastAutoTime=now;if(addCurrentCore(true))setStatus("自動登録完了："+hit.symbol)}
-async function ensureWorker(){if(worker)return worker;setStatus("OCR準備中...");worker=await Tesseract.createWorker("eng",1);await worker.setParameters({tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789- ",tessedit_pageseg_mode:"7"});setStatus("OCR準備完了");return worker}
+async function ensureWorker(){if(worker)return worker;setStatus("OCR準備中...");worker=await Tesseract.createWorker("eng",1);await worker.setParameters({tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789- ",tessedit_pageseg_mode:"6"});setStatus("OCR準備完了");return worker}
 async function startAuto(){try{isStopped=false;await startCamera();if(timer)clearInterval(timer);timer=setInterval(readOnce,1200);await readOnce()}catch(e){setStatus("カメラエラー："+e.message);alert("カメラ起動失敗："+e.message)}}
 async function startCamera(){if(stream)return;stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=stream;await video.play();await ensureWorker();setStatus("自動読取中")}
 function stopAll(){isStopped=true;if(timer){clearInterval(timer);timer=null}if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}video.srcObject=null;busy=false;setStatus("停止しました")}
 async function toggleLight(){try{if(!stream)return alert("先にカメラ起動してください");let tr=stream.getVideoTracks()[0],cap=tr.getCapabilities?tr.getCapabilities():null;if(!cap||!cap.torch)return alert("このスマホ/ブラウザはライト制御に対応していません");torchOn=!torchOn;await tr.applyConstraints({advanced:[{torch:torchOn}]});setStatus(torchOn?"ライトON":"ライトOFF")}catch(e){alert("ライト切替エラー："+e.message)}}
-function crop(){
-  if(!video.videoWidth)return null;
-  let c=work;
-  let sw=video.videoWidth*.94;
-  let sh=video.videoHeight*.16;
-  let sx=(video.videoWidth-sw)/2;
-  let sy=(video.videoHeight-sh)/2;
-  let scale=1500/sw;
-  c.width=1500;
-  c.height=Math.max(180,Math.floor(sh*scale));
-  let ctx=c.getContext("2d",{willReadFrequently:true});
-  ctx.drawImage(video,sx,sy,sw,sh,0,0,c.width,c.height);
-  try{
-    let img=ctx.getImageData(0,0,c.width,c.height),d=img.data;
-    for(let i=0;i<d.length;i+=4){
-      let g=d[i]*.299+d[i+1]*.587+d[i+2]*.114;
-      g=(g-128)*1.35+128;
-      if(g<0)g=0;if(g>255)g=255;
-      d[i]=d[i+1]=d[i+2]=g;
-    }
-    ctx.putImageData(img,0,0);
-  }catch(e){}
-  return c
-}
+function crop(){if(!video.videoWidth)return null;let c=work,sw=video.videoWidth*.62,sh=video.videoHeight*.26,sx=(video.videoWidth-sw)/2,sy=(video.videoHeight-sh)/2,scale=1200/sw;c.width=1200;c.height=Math.max(230,Math.floor(sh*scale));c.getContext("2d",{willReadFrequently:true}).drawImage(video,sx,sy,sw,sh,0,0,c.width,c.height);return c}
 async function readOnce(){if(isStopped)return;if(!stream)return alert("先にカメラ起動してください");if(busy)return;busy=true;setStatus("読取中...");try{let c=crop();if(!c){setStatus("カメラ準備中");return}let w=await ensureWorker(),r=await w.recognize(c);if(isStopped)return;let text=r.data.text||"";rawBox.textContent="読取文字：\\n"+text;let m=readTarget==="symbol"?matchSymbol(text):matchModel(text);if(m.hit){if(readTarget==="symbol")showSymbolHit(m.hit,m.score,m.cand);else{showHit(m.hit,m.score,m.cand);tryAutoRegister(m.hit,m.score)}}else showMissing(m.cand,text)}catch(e){setStatus("読取エラー："+e.message)}finally{busy=false}}
 function showHit(hit,score,read){
 let cat=categoryFor(hit.symbol,hit.type);
@@ -648,7 +496,7 @@ current={model:hit.model,symbol:hit.symbol,type:hit.type,missing:false};
 result.style.borderColor=cat.color;
 result.innerHTML=`<div class="v342-read-wrap"><div class="v342-result-card"><div class="v342-title">✅ 照会記号一致</div><div class="v342-line"><div class="v342-model">${esc(hit.model)}</div><div class="v342-symbol" style="color:${cat.color}">${esc(hit.symbol)}</div></div><div class="v342-sub">読取：${esc(read||hit.symbol)} / 一致率：${Math.round(score*100)}%</div><div class="specBox"><div class="spec"><small>開口</small>${esc(hit.aperture||"未入力")}</div><div class="spec"><small>W数</small>${esc(hit.watt||"未入力")}</div><div class="spec"><small>電流</small>${esc(hit.currentA||"未入力")}</div><div class="spec"><small>型番</small>${esc(hit.model||"")}</div></div></div></div><div class="ruleBox" style="color:${cat.color}"><div class="ruleKey">${esc(cat.key)}</div><div class="ruleName">${esc(cat.name)}</div></div>`;
 setStatus("照会一致："+hit.symbol)}
-function showMissing(cand,raw){let shown=(cand&&cand!=="未読取")?fixFaModel(String(cand)).slice(0,24):fixFaModel(safeOcrText(raw));current={model:shown,symbol:"未登録",type:"",missing:true};result.style.borderColor="#fff";result.innerHTML=`<div><div class="state">未登録</div><div class="readModel">${esc(shown)}</div><div class="meta">OCR読取文字を表示中<br>自動登録は停止します</div></div><div class="ruleBox" style="color:#fff"><div class="ruleKey">白</div><div class="ruleName">未登録</div></div>`;setStatus("自動停止：未登録")}
+function showMissing(cand,raw){let shown=(cand&&cand!=="未読取")?String(cand).slice(0,24):safeOcrText(raw);current={model:shown,symbol:"未登録",type:"",missing:true};result.style.borderColor="#fff";result.innerHTML=`<div><div class="state">未登録</div><div class="readModel">${esc(shown)}</div><div class="meta">OCR読取文字を表示中<br>自動登録は停止します</div></div><div class="ruleBox" style="color:#fff"><div class="ruleKey">白</div><div class="ruleName">未登録</div></div>`;setStatus("自動停止：未登録")}
 function addCurrent(){addCurrentCore(false)}
 function renderChecklist(){
 if(deliveries.length===0&&checklist.length>0){
@@ -686,7 +534,7 @@ if(!checklist.length){
 }
 let lines=["搬入フォルダ,日付,時刻,型番,紹介記号,数量,固定"];
 checklist.forEach(x=>{
-  let del=deliveries&&deliveries.find?deliveries.find(d=>d.id===x.deliveryId):null;
+  let del=(typeof deliveries!=="undefined"&&deliveries.find)?deliveries.find(d=>d.id===x.deliveryId):null;
   lines.push([del?del.label:"",x.date,x.time,x.model,x.symbol,x.qty,x.locked?"固定":""].map(v=>'"'+String(v).replaceAll('"','""')+'"').join(","))
 });
 let blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8;"});
@@ -700,9 +548,9 @@ setTimeout(()=>{
   let clear=confirm("CSV保存しました。\nチェックリストを削除しますか？\n\nOK：削除する\nキャンセル：残す");
   if(clear){
     checklist=[];
-    deliveries=[];
-    activeDeliveryId=null;
-    deliveryOpen={};
+    if(typeof deliveries!=="undefined")deliveries=[];
+    if(typeof activeDeliveryId!=="undefined")activeDeliveryId=null;
+    if(typeof deliveryOpen!=="undefined")deliveryOpen={};
     renderChecklist();
     setStatus("保存後、チェックリストを削除しました");
   }else{
