@@ -1,6 +1,6 @@
 {
-  "name": "lighting-ocr-v3",
-  "version": "3.0.0",
+  "name": "lighting-ocr-v3-full",
+  "version": "3.1.0",
   "private": true,
   "scripts": {
     "build": "mkdir -p dist && cp index.html dist/index.html && cp sample_data.csv dist/sample_data.csv"

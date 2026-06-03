@@ -1,3 +1,3 @@
-# OCR照会 V3
+# OCR照会 V3 完全版
 
-ヘルプタブ・ルール編集・20色・CSV3列確認表を統合した完成版。
+index.htmlをGitHubのindex.htmlへ上書きしてください。
