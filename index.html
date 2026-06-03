@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>OCR照会 V3 完全版</title>
+  <title>OCR照会 V3.1</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
   <style>
@@ -605,6 +605,38 @@
       border: 2px solid #333;
     }
 
+
+    .mode-box {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 8px 0;
+      background: #080808;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 8px;
+    }
+
+    .mode-btn {
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 10px;
+      padding: 12px 6px;
+      font-size: 16px;
+    }
+
+    .mode-btn.active {
+      background: #07325c;
+      border-color: #1d7cff;
+      color: #fff;
+    }
+
+    .auto-note {
+      color: #bbb;
+      font-size: 13px;
+      margin: 4px 2px 8px;
+    }
+
     canvas {
       display: none;
     }
@@ -613,7 +645,7 @@
 
 <body>
   <header>
-    OCR照会 V3 完全版
+    OCR照会 V3.1
     <button id="btnHelp" class="help-btn">ヘルプ</button>
   </header>
 
@@ -639,7 +671,7 @@
 
     <div class="grid-3">
       <button id="btnStart" class="blue">📷 カメラ起動<br><small>自動読取</small></button>
-      <button id="btnAdd" class="green">＋ チェックリストに追加<br><small>数量を+1</small></button>
+      <button id="btnAdd" class="green">✔ 登録<br><small>手動追加</small></button>
       <button id="btnLight" class="black">💡<br>ライト</button>
     </div>
 
@@ -647,6 +679,13 @@
       <button id="btnRead" class="black">1回だけ読取</button>
       <button id="btnStop" class="red">■ 停止</button>
     </div>
+
+    <div class="mode-box">
+      <button id="btnManualMode" class="mode-btn active">手動登録</button>
+      <button id="btnAutoMode" class="mode-btn">自動登録</button>
+    </div>
+    <div id="modeNote" class="auto-note">現在：手動登録モード</div>
+
 
     <div class="status">
       <span class="dot"></span>
@@ -945,6 +984,9 @@
 
     let data = DATA_INIT.slice();
     let checklist = [];
+    let registerMode = 'manual';
+    let lastAutoKey = '';
+    let lastAutoTime = 0;
     let current = null;
     let stream = null;
     let worker = null;
@@ -998,6 +1040,8 @@
       btnStop.onclick = stopAll;
       btnExport.onclick = exportCsv;
       csvInput.onchange = loadCsv;
+      btnManualMode.onclick = () => setRegisterMode('manual');
+      btnAutoMode.onclick = () => setRegisterMode('auto');
 
       btnHelp.onclick = () => {
         drawer.style.display = "block";
@@ -1024,6 +1068,93 @@
 
     function setStatus(s) {
       status.textContent = s;
+    }
+
+    function setRegisterMode(mode) {
+      registerMode = mode;
+      btnManualMode.classList.toggle("active", mode === "manual");
+      btnAutoMode.classList.toggle("active", mode === "auto");
+      modeNote.textContent = mode === "auto"
+        ? "現在：自動登録モード（未登録・重複型番・一致率不足は自動登録しません）"
+        : "現在：手動登録モード";
+      setStatus(mode === "auto" ? "自動登録モード" : "手動登録モード");
+    }
+
+    function isDuplicateModel(model) {
+      const key = normalize(model);
+      return data.filter((r) => normalize(r.model) === key).length > 1;
+    }
+
+    function safeOcrText(raw) {
+      const candidates = extractCandidates(raw || "");
+      if (candidates.length) return candidates[0];
+
+      const line = String(raw || "")
+        .split(/\n/)
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .sort((a, b) => b.length - a.length)[0] || "読取文字なし";
+
+      return line.slice(0, 32);
+    }
+
+    function addCurrentCore(silent = false) {
+      if (!current) {
+        if (!silent) alert("先に型番を読取してください");
+        return false;
+      }
+
+      const d = new Date();
+      const date = d.toISOString().slice(0, 10).replaceAll("-", "/");
+      const time = d.toTimeString().slice(0, 5);
+      const key = current.missing ? current.model : current.symbol;
+      const found = checklist.find((x) => x.date === date && x.symbol === key);
+
+      if (found && !found.locked) {
+        found.qty += 1;
+      } else {
+        checklist.unshift({
+          date,
+          time,
+          symbol: key,
+          model: current.model,
+          type: current.type,
+          qty: 1,
+          locked: false,
+          missing: current.missing
+        });
+      }
+
+      renderChecklist();
+      return true;
+    }
+
+    function tryAutoRegister(hit, score) {
+      if (registerMode !== "auto") return;
+
+      if (!hit || score < 0.86) {
+        setStatus("自動停止：一致率不足");
+        return;
+      }
+
+      if (isDuplicateModel(hit.model)) {
+        setStatus("自動停止：重複型番のため手動確認");
+        return;
+      }
+
+      const key = hit.model + "|" + hit.symbol;
+      const now = Date.now();
+
+      if (lastAutoKey === key && now - lastAutoTime < 2000) {
+        return;
+      }
+
+      lastAutoKey = key;
+      lastAutoTime = now;
+
+      if (addCurrentCore(true)) {
+        setStatus("自動登録完了：" + hit.symbol);
+      }
     }
 
     function loadRules() {
@@ -1320,26 +1451,19 @@
       if (!video.videoWidth) return null;
 
       const c = work;
-      const sw = video.videoWidth * .92;
-      const sh = video.videoHeight * .45;
-      const sx = video.videoWidth * .04;
-      const sy = video.videoHeight * .28;
-      const scale = 1100 / sw;
 
-      c.width = 1100;
-      c.height = Math.max(260, Math.floor(sh * scale));
+      // 十字中心付近だけをOCRする
+      const sw = video.videoWidth * 0.62;
+      const sh = video.videoHeight * 0.26;
+      const sx = (video.videoWidth - sw) / 2;
+      const sy = (video.videoHeight - sh) / 2;
+      const scale = 1200 / sw;
 
-      c.getContext("2d", { willReadFrequently: true }).drawImage(
-        video,
-        sx,
-        sy,
-        sw,
-        sh,
-        0,
-        0,
-        c.width,
-        c.height
-      );
+      c.width = 1200;
+      c.height = Math.max(230, Math.floor(sh * scale));
+
+      const ctx = c.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, c.width, c.height);
 
       return c;
     }
@@ -1370,8 +1494,12 @@
 
         const m = matchModel(text);
 
-        if (m.hit) showHit(m.hit, m.score, m.cand);
-        else showMissing(m.cand);
+        if (m.hit) {
+          showHit(m.hit, m.score, m.cand);
+          tryAutoRegister(m.hit, m.score);
+        } else {
+          showMissing(m.cand, text);
+        }
       } catch (e) {
         setStatus("読取エラー：" + e.message);
       } finally {
@@ -1398,7 +1526,7 @@
           <div class="meta">
             CSV型番：<b>${esc(hit.model)}</b><br>
             ${esc(hit.type || "")} / ${esc(cat.name)}<br>
-            一致率：${Math.round(score * 100)}%
+            ${isDuplicateModel(hit.model) ? "⚠ 重複型番：手動確認<br>" : ""}一致率：${Math.round(score * 100)}%
           </div>
         </div>
         <div class="rule-box" style="color:${cat.color}">
@@ -1410,11 +1538,13 @@
       setStatus(hit.model + " → " + hit.symbol);
     }
 
-    function showMissing(cand) {
-      const short = String(cand || "未読取").slice(0, 24);
+    function showMissing(cand, rawText) {
+      const shown = cand && cand !== "未読取"
+        ? String(cand).slice(0, 24)
+        : safeOcrText(rawText);
 
       current = {
-        model: short,
+        model: shown,
         symbol: "未登録",
         type: "",
         missing: true
@@ -1424,8 +1554,8 @@
       result.innerHTML = `
         <div>
           <div class="state">未登録</div>
-          <div class="read-model">${esc(short)}</div>
-          <div class="meta">CSVに無い/読めない型番です<br>このまま追加できます</div>
+          <div class="read-model">${esc(shown)}</div>
+          <div class="meta">OCR読取文字を表示中<br>自動登録は停止します</div>
         </div>
         <div class="rule-box" style="color:#fff">
           <div class="rule-key">白</div>
@@ -1433,34 +1563,11 @@
         </div>
       `;
 
-      setStatus("未登録：" + short);
+      setStatus("自動停止：未登録");
     }
 
     function addCurrent() {
-      if (!current) return alert("先に型番を読取してください");
-
-      const d = new Date();
-      const date = d.toISOString().slice(0, 10).replaceAll("-", "/");
-      const time = d.toTimeString().slice(0, 5);
-      const key = current.missing ? current.model : current.symbol;
-      const found = checklist.find((x) => x.date === date && x.symbol === key);
-
-      if (found && !found.locked) {
-        found.qty += 1;
-      } else {
-        checklist.unshift({
-          date,
-          time,
-          symbol: key,
-          model: current.model,
-          type: current.type,
-          qty: 1,
-          locked: false,
-          missing: current.missing
-        });
-      }
-
-      renderChecklist();
+      addCurrentCore(false);
     }
 
     function renderChecklist() {

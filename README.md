@@ -1,3 +1,3 @@
-# OCR照会 V3 完全版
+# OCR照会 V3.1
 
-index.htmlをGitHubのindex.htmlへ上書きしてください。
+手動/自動登録切替、中央OCR、未登録/重複型番の自動停止を追加。
